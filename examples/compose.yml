@@ -1,6 +1,6 @@
 services:
   cloudflare-companion:
-    image: ghcr.io/zvapor-dev/traefik-cloudflare-companion:8
+    image: ghcr.io/zvapor-dev/traefik-cloudflare-companion:8.0.0-BETA
     container_name: cloudflare-companion
     restart: unless-stopped
     volumes:

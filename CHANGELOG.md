@@ -1,4 +1,4 @@
-## 8.0.0 2026-10-21 <zVapor-Dev@github>
+## 8.0.0-BETA 2026-10-21 <zVapor-Dev@github>
 
 First release of the maintained fork. The upstream Docker Hub image and its `tiredofit/alpine` base were deleted, so the image is rebuilt from scratch. Configuration is unchanged; swap the image name and keep your environment variables.
 
