@@ -1,64 +1,30 @@
-ARG DISTRO="alpine"
-ARG DISTRO_VARIANT="3.21"
+FROM docker.io/library/python:3.13-alpine
 
-FROM docker.io/tiredofit/${DISTRO}:${DISTRO_VARIANT}-7.10.30
-LABEL maintainer="Dave Conroy (github.com/tiredofit)"
+ARG VERSION=dev
 
-ENV CONTAINER_ENABLE_MESSAGING=FALSE \
-    CONTAINER_ENABLE_SCHEDULING=FALSE \
-    CONTAINER_PROCESS_RUNAWAY_PROTECTOR=FALSE \
-    IMAGE_NAME="tiredofit/traefik-cloudflare-companion" \
-    IMAGE_REPO_URL="https://github.com/tiredofit/docker-traefik-cloudflare-companion/"
+LABEL org.opencontainers.image.title="traefik-cloudflare-companion" \
+      org.opencontainers.image.description="Automatically create Cloudflare DNS records for services behind Traefik" \
+      org.opencontainers.image.source="https://github.com/zVapor-Dev/traefik-cloudflare-companion" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="${VERSION}"
 
-RUN source /assets/functions/00-container && \
-    set -x && \
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    IMAGE_VERSION=${VERSION}
+
+COPY requirements.txt /tmp/requirements.txt
+
+RUN apk add --no-cache su-exec tzdata && \
     addgroup -S -g 8080 tcc && \
-    adduser -D -S -s /sbin/nologin \
-            -h /dev/null \
-            -G tcc \
-            -g "tcc" \
-            -u 8080 tcc \
-            && \
-    \
-    package update && \
-    package upgrade && \
-    package install .tcc-build-deps \
-                cargo \
-                gcc \
-                libffi-dev \
-                musl-dev \
-                openssl-dev \
-                py-pip \
-                py3-setuptools \
-                py3-wheel \
-                python3-dev \
-                && \
-    \
-    package install .tcc-run-deps \
-                docker-py \
-                py3-beautifulsoup4 \
-                py3-certifi \
-                py3-chardet \
-                py3-idna \
-                py3-openssl \
-                py3-packaging \
-                py3-requests \
-                py3-soupsieve \
-                py3-urllib3 \
-                py3-websocket-client \
-                py3-yaml \
-                python3 \
-                && \
-    \
-    pip install --break-system-packages \
-            cloudflare==4.1.* \
-            get-docker-secret \
-            requests \
-            && \
-    \
-    package remove .tcc-build-deps && \
-    package cleanup && \
-    rm -rf /root/.cache \
-           /root/.cargo
+    adduser -S -D -H -u 8080 -G tcc -s /sbin/nologin tcc && \
+    mkdir -p /logs && chown tcc:tcc /logs && \
+    pip install -r /tmp/requirements.txt && \
+    rm -rf /tmp/requirements.txt /root/.cache
 
-COPY install /
+COPY app/cloudflare_companion.py /app/cloudflare_companion.py
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["python3", "/app/cloudflare_companion.py"]

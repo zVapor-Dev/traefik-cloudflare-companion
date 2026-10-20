@@ -1,3 +1,35 @@
+## 8.0.0 2026-10-21 <zVapor-Dev@github>
+
+First release of the maintained fork. The upstream Docker Hub image and its `tiredofit/alpine` base were deleted, so the image is rebuilt from scratch. Configuration is unchanged; swap the image name and keep your environment variables.
+
+   ### Changed
+      - New image based on the official `python:3.13-alpine`, without s6-overlay, Zabbix or the tiredofit base. About 40% smaller (176 MB vs 287 MB)
+      - Published to `ghcr.io/zvapor-dev/traefik-cloudflare-companion` for amd64 and arm64
+      - `TCC_USER=tcc` runs as non-root and joins the Docker socket's group automatically
+      - Stops immediately on SIGTERM instead of waiting for Docker's 10 second kill
+      - Docker events are watched per container start and Swarm service create/update, and the watch reconnects after the stream drops
+      - Docker API version is negotiated, so newer Docker Engines that drop old API versions keep working
+      - Domain matching is a suffix match: `app.notexample.com` no longer matches `DOMAIN1=example.com`, and `DOMAIN1_EXCLUDED_SUB_DOMAINS=int` no longer excludes `print.example.com`
+      - Only real `Host()` matchers are used from rules; `HostRegexp`, `Header` and `PathPrefix` values are ignored
+      - Log files rotate at 10 MB (3 kept). An unwritable log path falls back to console
+      - `TRAEFIK_VERSION=3` is accepted (same as 2)
+
+   ### Fixed
+      - Crash when the Traefik API returns non-JSON or an error page (upstream #126); the body is now logged
+      - Crash on Cloudflare API errors (`%d` format error in the error handler)
+      - Crash in dry-run mode when a record already exists
+      - `fmt is not defined` crash for other `LOG_LEVEL` values (upstream #90)
+      - Crash on containers or services without labels
+      - `comment: null` is no longer sent when `DOMAINn_COMMENT` is unset
+      - Clear error instead of a traceback when the Docker socket can't be reached
+
+   ### Added
+      - `SWARM_MODE` as an alias of `DOCKER_SWARM_MODE` (the old README used it)
+      - `CF_TOKEN_FILE`, `CF_EMAIL_FILE` and `DOMAINn_ZONE_ID_FILE` for secrets
+      - `TRAEFIK_POLL_TIMEOUT` (default 10 seconds)
+      - Unit tests and a CI pipeline that builds multi-arch images
+
+
 ## 7.4.0 2025-04-30 <GuyKh@github>
 
    ### Added

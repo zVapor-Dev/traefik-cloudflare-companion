@@ -1,1 +1,4 @@
-examples/
+*
+!app/cloudflare_companion.py
+!docker-entrypoint.sh
+!requirements.txt

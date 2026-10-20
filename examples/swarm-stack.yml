@@ -1,0 +1,26 @@
+# docker stack deploy -c swarm-stack.yml cloudflare-companion
+services:
+  cloudflare-companion:
+    image: ghcr.io/zvapor-dev/traefik-cloudflare-companion:8
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - DOCKER_SWARM_MODE=TRUE
+      - TCC_USER=tcc
+      - LOG_TYPE=CONSOLE
+      - CF_TOKEN_FILE=/run/secrets/cf_token
+      - TARGET_DOMAIN=host.example.org
+      - DOMAIN1=example.org
+      - DOMAIN1_ZONE_ID=1234567890
+    secrets:
+      - cf_token
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          # Swarm services are only visible from a manager node
+          - node.role == manager
+
+secrets:
+  cf_token:
+    external: true

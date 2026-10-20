@@ -1,34 +1,21 @@
 services:
   cloudflare-companion:
-    image: tiredofit/traefik-cloudflare-companion
+    image: ghcr.io/zvapor-dev/traefik-cloudflare-companion:8
     container_name: cloudflare-companion
+    restart: unless-stopped
     volumes:
-      - ./logs:/logs
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
-      - TIMEZONE=America/Vancouver
-
-      - LOG_TYPE=BOTH
-      - LOG_LEVEL=INFO
-
-      - TRAEFIK_VERSION=2
-      - CF_EMAIL=email@example.com
-      - CF_TOKEN=fbSx3dk3A3mJ6UukLQ7zRbo63H5UdsGSCqQnTvbJDgyQaTp
-      - RC_TYPE=CNAME
-
+      - TIMEZONE=Europe/Amsterdam
+      - TCC_USER=tcc
+      - LOG_TYPE=CONSOLE
+      - CF_TOKEN_FILE=/run/secrets/cf_token
       - TARGET_DOMAIN=host.example.org
       - DOMAIN1=example.org
       - DOMAIN1_ZONE_ID=1234567890
-      #- DOCKER_HOST=tcp://198.51.100.32:2376
-      #- DOCKER_CERT_PATH=/docker-certs
-      #- DOCKER_TLS_VERIFY=1
+    secrets:
+      - cf_token
 
-      #- TRAEFIK_FILTER_LABEL=traefik.constraint
-      #- TRAEFIK_FILTER=proxy-public
-    networks:
-      - services
-    restart: always
-
-networks:
-  services:
-    external: true
+secrets:
+  cf_token:
+    file: ./cf_token
