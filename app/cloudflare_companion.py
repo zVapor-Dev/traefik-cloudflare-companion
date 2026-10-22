@@ -17,7 +17,6 @@ from urllib.parse import urlparse
 
 import docker
 import requests
-from cloudflare import Cloudflare, APIError as CloudflareAPIError
 
 __version__ = os.environ.get("IMAGE_VERSION", "dev")
 
@@ -34,6 +33,61 @@ SOURCE_DOCKER = 1
 SOURCE_TRAEFIK = 2
 
 logger = logging.getLogger("cloudflare-companion")
+
+
+class CloudflareAPIError(Exception):
+    pass
+
+
+class CloudflareClient:
+    """Minimal client for the three Cloudflare DNS record calls this tool needs."""
+
+    API_URL = "https://api.cloudflare.com/client/v4"
+    RETRY_STATUSES = (429, 500, 502, 503, 504)
+
+    def __init__(self, token, email=None, base_url=None, timeout=30, max_retries=2):
+        self.base_url = (base_url or self.API_URL).rstrip("/")
+        self.timeout = timeout
+        self.max_retries = max_retries
+        self.session = requests.Session()
+        self.session.headers["User-Agent"] = "traefik-cloudflare-companion/{}".format(__version__)
+        if email:
+            self.session.headers["X-Auth-Email"] = email
+            self.session.headers["X-Auth-Key"] = token
+        else:
+            self.session.headers["Authorization"] = "Bearer {}".format(token)
+
+    def _request(self, method, path, **kwargs):
+        url = self.base_url + path
+        for attempt in range(self.max_retries + 1):
+            try:
+                response = self.session.request(method, url, timeout=self.timeout, **kwargs)
+            except requests.exceptions.RequestException as ex:
+                if attempt < self.max_retries:
+                    time.sleep(2 ** attempt)
+                    continue
+                raise CloudflareAPIError("{} {} failed: {}".format(method, path, ex)) from ex
+            if response.status_code in self.RETRY_STATUSES and attempt < self.max_retries:
+                time.sleep(2 ** attempt)
+                continue
+            try:
+                body = response.json()
+            except ValueError:
+                body = {}
+            if not response.ok or not body.get("success", False):
+                errors = body.get("errors") or response.text[:300]
+                raise CloudflareAPIError("HTTP {}: {}".format(response.status_code, errors))
+            return body.get("result")
+
+    def list_records(self, zone_id, name):
+        return self._request("GET", "/zones/{}/dns_records".format(zone_id),
+                             params={"name.exact": name, "per_page": 100}) or []
+
+    def create_record(self, zone_id, data):
+        return self._request("POST", "/zones/{}/dns_records".format(zone_id), json=data)
+
+    def update_record(self, zone_id, record_id, data):
+        return self._request("PUT", "/zones/{}/dns_records/{}".format(zone_id, record_id), json=data)
 
 
 def env_bool(name, default="FALSE", env=None):
@@ -276,20 +330,20 @@ class Companion:
             if dom["comment"]:
                 data["comment"] = dom["comment"]
             try:
-                records = self.cf.dns.records.list(zone_id=dom["zone_id"], name={"exact": name}).result
+                records = self.cf.list_records(dom["zone_id"], name)
                 if not records:
                     if self.config.dry_run:
                         logger.info("DRY-RUN: POST to Cloudflare %s: %s", dom["zone_id"], data)
                     else:
-                        self.cf.dns.records.create(zone_id=dom["zone_id"], **data)
+                        self.cf.create_record(dom["zone_id"], data)
                         logger.info("Created new record: %s to point to %s", name, dom["target_domain"])
                     continue
                 for record in records:
-                    if record.content != dom["target_domain"] or self.config.refresh_entries:
+                    if record.get("content") != dom["target_domain"] or self.config.refresh_entries:
                         if self.config.dry_run:
-                            logger.info("DRY-RUN: PUT to Cloudflare %s, %s: %s", dom["zone_id"], record.id, data)
+                            logger.info("DRY-RUN: PUT to Cloudflare %s, %s: %s", dom["zone_id"], record["id"], data)
                         else:
-                            self.cf.dns.records.update(zone_id=dom["zone_id"], dns_record_id=record.id, **data)
+                            self.cf.update_record(dom["zone_id"], record["id"], data)
                             logger.info("Updated existing record: %s to point to %s", name, dom["target_domain"])
                     else:
                         logger.info("Existing record: %s already points to %s", name, dom["target_domain"])
@@ -452,10 +506,10 @@ def main():
 
     if email:
         logger.debug("API Mode: Global")
-        cf = Cloudflare(api_email=email, api_key=token)
+        cf = CloudflareClient(token, email=email)
     else:
         logger.debug("API Mode: Scoped")
-        cf = Cloudflare(api_token=token)
+        cf = CloudflareClient(token)
 
     docker_client = None
     if config.enable_docker_poll:

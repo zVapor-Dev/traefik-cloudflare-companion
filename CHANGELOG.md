@@ -1,9 +1,23 @@
+## 8.0.0 2026-10-22 <zVapor-Dev@github>
+
+First stable release of the maintained successor. Changes since 8.0.0-BETA:
+
+   ### Changed
+      - Talk to the Cloudflare API directly with `requests` instead of the 108 MB `cloudflare` SDK. The image drops from 176 MB to 88 MB and uses about 30 MB of RAM
+      - Cloudflare requests retry twice with backoff on HTTP 429/5xx and connection errors, and send a `traefik-cloudflare-companion/<version>` User-Agent
+      - Base image `python:3.15-alpine`; CI actions updated
+
+   ### Added
+      - End-to-end tests against a fake Cloudflare API
+      - SECURITY.md, CONTRIBUTING.md, issue and pull request templates
+
+
 ## 8.0.0-BETA 2026-10-21 <zVapor-Dev@github>
 
 First release of the maintained fork. The upstream Docker Hub image and its `tiredofit/alpine` base were deleted, so the image is rebuilt from scratch. Configuration is unchanged; swap the image name and keep your environment variables.
 
    ### Changed
-      - New image based on the official `python:3.13-alpine`, without s6-overlay, Zabbix or the tiredofit base. About 40% smaller (176 MB vs 287 MB)
+      - New image based on the official `python:3.13-alpine` (3.15 since 8.0.0), without s6-overlay, Zabbix or the tiredofit base. About 40% smaller (176 MB vs 287 MB)
       - Published to `ghcr.io/zvapor-dev/traefik-cloudflare-companion` for amd64 and arm64
       - `TCC_USER=tcc` runs as non-root and joins the Docker socket's group automatically
       - Stops immediately on SIGTERM instead of waiting for Docker's 10 second kill

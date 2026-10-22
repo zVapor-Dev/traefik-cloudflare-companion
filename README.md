@@ -11,12 +11,12 @@ Automatically create Cloudflare DNS records (CNAME by default) for every hostnam
 
 ```diff
 -    image: tiredofit/traefik-cloudflare-companion
-+    image: ghcr.io/zvapor-dev/traefik-cloudflare-companion:8.0.0-BETA
++    image: ghcr.io/zvapor-dev/traefik-cloudflare-companion:8
 ```
 
 Your environment variables and Docker secrets keep working. What changed:
 
-- The image is built on the official `python:3.13-alpine`, without s6-overlay or the tiredofit base. It is about 40% smaller and stops instantly on `docker stop`.
+- The image is built on the official `python:3.15-alpine`, without s6-overlay or the tiredofit base. It is 88 MB instead of 287 MB, uses about 30 MB of RAM, and stops instantly on `docker stop`.
 - Options that belonged to the old base image (Zabbix, msmtp, `CONTAINER_*`) are gone. `TIMEZONE` still works.
 - Domain matching is stricter: `DOMAIN1=example.com` only matches `example.com` and `*.example.com`, not `notexample.com`.
 
@@ -27,7 +27,7 @@ The full list is in [CHANGELOG.md](CHANGELOG.md).
 ```yaml
 services:
   cloudflare-companion:
-    image: ghcr.io/zvapor-dev/traefik-cloudflare-companion:8.0.0-BETA
+    image: ghcr.io/zvapor-dev/traefik-cloudflare-companion:8
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -48,14 +48,11 @@ More examples: [compose](examples/compose.yml) and [Docker Swarm](examples/swarm
 
 Images are published to `ghcr.io/zvapor-dev/traefik-cloudflare-companion` for `linux/amd64` and `linux/arm64`.
 
-The current release is a beta, `8.0.0-BETA`. Stable releases will follow once it has run in production for a while.
-
 | Tag                       | What it is                                         |
 | ------------------------- | -------------------------------------------------- |
-| `8.0.0-BETA`              | A specific pre-release (pin this one for now)      |
-| `beta`                    | The newest pre-release                             |
-| `8.0.0`, `8.0`, `8`       | Stable releases (not published yet)                |
-| `latest`                  | The newest stable release (not published yet)      |
+| `8.0.0`, `8.0`, `8`       | Stable releases. Pin `8` to get fixes without breaking changes |
+| `latest`                  | The newest stable release                          |
+| `X.Y.Z-BETA`, `beta`      | Pre-releases for testing                           |
 | `edge`                    | The latest commit on `main`                        |
 
 ### Cloudflare API token

@@ -4,20 +4,13 @@ about: Suggest an idea or feature
 title: ''
 labels: enhancement
 assignees: ''
-
----
-
----
-name: Feature Request
-about: Suggest an idea for this project
-
 ---
 
 **Description of the feature**
-<!-- A clear description of the feature you'd like implemented  -->
+<!-- A clear description of the feature you'd like implemented -->
 
-**Benefits of feature**
-<!-- Explain the measurable benefits this feature would achieve. -->
+**Why it would help**
+<!-- What problem it solves for you -->
 
 **Additional context**
-<!--Add any other context or screenshots about the feature request here. -->
+<!-- Anything else, such as example labels or compose snippets -->

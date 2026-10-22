@@ -1,7 +1,7 @@
 # docker stack deploy -c swarm-stack.yml cloudflare-companion
 services:
   cloudflare-companion:
-    image: ghcr.io/zvapor-dev/traefik-cloudflare-companion:8.0.0-BETA
+    image: ghcr.io/zvapor-dev/traefik-cloudflare-companion:8
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
