@@ -125,44 +125,38 @@ def test_read_secret_env_fallback(monkeypatch):
     assert tcc.read_secret("CF_TOKEN") == "from-env"
 
 
-class FakeRecords:
+class FakeCF:
     def __init__(self, existing=None):
         self.existing = existing or []
         self.created = []
         self.updated = []
 
-    def list(self, zone_id, name):
-        assert name == {"exact": name["exact"]}
-        return type("Page", (), {"result": [r for r in self.existing if r.name == name["exact"]]})()
+    def list_records(self, zone_id, name):
+        return [r for r in self.existing if r["name"] == name]
 
-    def create(self, zone_id, **data):
+    def create_record(self, zone_id, data):
         self.created.append(data)
 
-    def update(self, zone_id, dns_record_id, **data):
-        self.updated.append((dns_record_id, data))
-
-
-class FakeCF:
-    def __init__(self, records):
-        self.dns = type("DNS", (), {"records": records})()
+    def update_record(self, zone_id, record_id, data):
+        self.updated.append((record_id, data))
 
 
 def make_companion(records, **env):
     env.setdefault("DRY_RUN", "false")
     doms = [{"name": "example.com", "zone_id": "z1", "ttl": 1, "proxied": False,
              "target_domain": "target.example.com", "comment": None, "excluded_sub_domains": []}]
-    return tcc.Companion(make_config(**env), FakeCF(records), doms, [], [])
+    return tcc.Companion(make_config(**env), records, doms, [], [])
 
 
 def test_point_domain_creates_without_null_comment():
-    records = FakeRecords()
+    records = FakeCF()
     assert make_companion(records).point_domain("app.example.com")
     assert records.created == [{"type": "CNAME", "name": "app.example.com", "content": "target.example.com",
                                 "ttl": 1, "proxied": False}]
 
 
 def test_point_domain_skips_other_zones_and_target():
-    records = FakeRecords()
+    records = FakeCF()
     companion = make_companion(records)
     companion.point_domain("app.notexample.com")
     companion.point_domain("target.example.com")
@@ -170,17 +164,17 @@ def test_point_domain_skips_other_zones_and_target():
 
 
 def test_point_domain_updates_changed_record():
-    existing = type("Rec", (), {"id": "r1", "name": "app.example.com", "content": "old.example.com"})()
-    records = FakeRecords([existing])
+    existing = {"id": "r1", "name": "app.example.com", "content": "old.example.com"}
+    records = FakeCF([existing])
     make_companion(records).point_domain("app.example.com")
     assert records.updated[0][0] == "r1"
 
 
 def test_point_domain_dry_run_does_not_write():
-    existing = type("Rec", (), {"id": "r1", "name": "app.example.com", "content": "old.example.com"})()
-    records = FakeRecords([existing])
+    existing = {"id": "r1", "name": "app.example.com", "content": "old.example.com"}
+    records = FakeCF([existing])
     make_companion(records, DRY_RUN="true").point_domain("app.example.com")
-    make_companion(FakeRecords(), DRY_RUN="true").point_domain("new.example.com")
+    make_companion(FakeCF(), DRY_RUN="true").point_domain("new.example.com")
     assert records.updated == [] and records.created == []
 
 
@@ -204,7 +198,7 @@ class FakeResponse:
 ])
 def test_traefik_poll_bad_responses_do_not_crash(monkeypatch, response):
     monkeypatch.setattr(tcc.requests, "get", lambda url, timeout: response)
-    companion = make_companion(FakeRecords(), TRAEFIK_POLL_URL="http://traefik:8080")
+    companion = make_companion(FakeCF(), TRAEFIK_POLL_URL="http://traefik:8080")
     companion.included_hosts = [tcc.re.compile(".*")]
     assert companion.get_traefik_mappings() == {}
 
@@ -212,6 +206,6 @@ def test_traefik_poll_bad_responses_do_not_crash(monkeypatch, response):
 def test_traefik_poll_success(monkeypatch):
     routers = [{"name": "a@file", "status": "enabled", "rule": "Host(`a.example.com`)"}]
     monkeypatch.setattr(tcc.requests, "get", lambda url, timeout: FakeResponse(200, routers))
-    companion = make_companion(FakeRecords(), TRAEFIK_POLL_URL="http://traefik:8080/")
+    companion = make_companion(FakeCF(), TRAEFIK_POLL_URL="http://traefik:8080/")
     companion.included_hosts = [tcc.re.compile(".*")]
     assert companion.get_traefik_mappings() == {"a.example.com": tcc.SOURCE_TRAEFIK}
